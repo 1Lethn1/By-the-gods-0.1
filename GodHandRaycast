@@ -1,0 +1,351 @@
+extends Node3D
+
+@onready var godHandWoodParticles = $GodHandWood/MiracleWoodParticles_GodHand
+@onready var godHandGrainParticles = $GodHandGrain/MiracleGrainParticles_GodHand
+@onready var godHandWaterParticles = $GodHandWater/MiracleWaterMesh_GodHand/MiracleWaterParticles_GodHand
+
+@onready var godHandWood = $GodHandWood
+@onready var godHandGrain = $GodHandGrain
+@onready var godHandWater = $GodHandWater
+@onready var godHandHeal = $GodHandHeal
+@onready var godHandFireball = $GodHandFireball
+
+@onready var godHandHolding = $GodHandHolding
+@onready var godHandHoldingNode = $GodHandHoldingNode
+@onready var godHandIdle = $GodHandIdle
+@onready var godHandPickup = $GodHandPickup
+@onready var buttonHoldTimer = $ButtonHoldTimer
+
+@onready var cameraAudioStreamPlayerGroup = get_tree().get_nodes_in_group("CameraAudioStreamPlayer")
+@onready var cameraAudioStreamPlayer = cameraAudioStreamPlayerGroup[0]
+
+var miracleWoodAudio = preload("res://Sounds/Miracle Wood.wav")
+var miracleGrainAudio = preload("res://Sounds/Miracle Grain.wav")
+var miracleWaterAudio = preload("res://Sounds/Miracle Water.wav")
+var miracleFireballAudio = preload ("res://Sounds/Fireball.wav")
+var miracleHealAudio = preload ("res://Sounds/Miracle Heal.wav")
+
+var hasPickedUpScaffold = false
+var hasPickedUpTree = false
+
+
+var hasPickedUpMiracleWood = false
+var hasPickedUpMiracleGrain = false
+var hasPickedUpMiracleWater = false
+var hasPickedUpMiracleFireball = false
+var hasPickedUpMiracleHeal = false
+
+var miracleInUse = false
+
+var canPickUpObject = true
+var hasPickedUpObject = false
+var isObjectThrowable = false
+var canThrowObject = false
+var rightClickHeld = false
+var pickedUpObjects = []
+
+@onready var pickUpArea = $PickUpArea
+@onready var dropRaycast = $DropRaycast
+
+var pickUpAreaCollision
+var pickUpAreaCollider
+
+func _physics_process(_delta):
+	
+	if hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false:
+		pickUpAreaCollider.global_transform.origin = godHandHoldingNode.global_transform.origin
+		
+		if pickUpAreaCollider.is_in_group("MiracleWoodDispenser"):
+			pickUpAreaCollider.HideWoodDispenser()
+			cameraAudioStreamPlayer.stream = miracleWoodAudio
+			cameraAudioStreamPlayer.play()
+			canPickUpObject = false
+			miracleInUse = true
+			
+			ShowGodHandWood()
+			
+			
+	if pickUpArea.has_overlapping_bodies() && Input.is_action_just_pressed("RightClick") && hasPickedUpObject == false:
+		pickUpAreaCollision = pickUpArea.get_overlapping_bodies()
+		pickUpAreaCollider = pickUpAreaCollision[0]
+		if pickUpAreaCollider.is_in_group("MiracleGrainDispenser"):
+			pickUpAreaCollider.HideGrainDispenser()
+			cameraAudioStreamPlayer.stream = miracleGrainAudio
+			cameraAudioStreamPlayer.play()
+			canPickUpObject = false
+			miracleInUse = true
+			
+			ShowGodHandGrain()
+			
+	if pickUpArea.has_overlapping_bodies() && Input.is_action_just_pressed("RightClick") && hasPickedUpObject == false:
+		pickUpAreaCollision = pickUpArea.get_overlapping_bodies()
+		pickUpAreaCollider = pickUpAreaCollision[0]
+		if pickUpAreaCollider.is_in_group("MiracleWaterDispenser"):
+			pickUpAreaCollider.HideWaterDispenser()
+			cameraAudioStreamPlayer.stream = miracleWaterAudio
+			cameraAudioStreamPlayer.play()
+			canPickUpObject = false
+			miracleInUse = true
+			
+			ShowGodHandWater()
+			
+	if pickUpArea.has_overlapping_bodies() && Input.is_action_just_pressed("RightClick") && hasPickedUpObject == false:
+		pickUpAreaCollision = pickUpArea.get_overlapping_bodies()
+		pickUpAreaCollider = pickUpAreaCollision[0]
+		if pickUpAreaCollider.is_in_group("MiracleHealDispenser"):
+			pickUpAreaCollider.HideHealDispenser()
+			cameraAudioStreamPlayer.stream = miracleHealAudio
+			cameraAudioStreamPlayer.play()
+			canPickUpObject = false
+			miracleInUse = true
+			
+			ShowGodHandHeal()
+			
+	if pickUpArea.has_overlapping_bodies() && Input.is_action_just_pressed("RightClick") && hasPickedUpObject == false:
+		pickUpAreaCollision = pickUpArea.get_overlapping_bodies()
+		pickUpAreaCollider = pickUpAreaCollision[0]
+		if pickUpAreaCollider.is_in_group("MiracleFireballDispenser"):
+			pickUpAreaCollider.HideFireballDispenser()
+			cameraAudioStreamPlayer.stream = miracleFireballAudio
+			cameraAudioStreamPlayer.play()
+			canPickUpObject = false
+			miracleInUse = true
+			
+			ShowGodHandFireball()
+		
+	if pickUpArea.has_overlapping_bodies() && Input.is_action_just_pressed("RightClick") && hasPickedUpObject == false && canPickUpObject == true && miracleInUse == false:
+		pickUpAreaCollision = pickUpArea.get_overlapping_bodies()
+		pickUpAreaCollider = pickUpAreaCollision[0]
+		if pickUpAreaCollider.is_in_group("Tree"):
+			pickedUpObjects.append(pickUpAreaCollider)
+			pickUpAreaCollider.collisionShape.disabled = true
+			ShowGodHandHolding()
+			hasPickedUpObject = true
+			canPickUpObject = false
+			isObjectThrowable = false
+			
+	elif Input.is_action_pressed("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && canThrowObject == true && hasPickedUpObject && buttonHoldTimer.time_left == 0:
+		buttonHoldTimer.start()
+		isObjectThrowable = true
+		print ("Mouse Button Held")
+	elif Input.is_action_just_released("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && canThrowObject == true && isObjectThrowable == true:
+		buttonHoldTimer.stop()
+		print ("Mouse Button Released")
+			
+			
+	elif Input.is_action_just_pressed("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && isObjectThrowable == false && canPickUpObject == false && buttonHoldTimer.time_left == 0:
+		hasPickedUpObject = false
+		canPickUpObject = true
+		isObjectThrowable = false
+		pickedUpObjects[0].global_transform.origin = dropRaycast.get_collision_point()
+		pickedUpObjects[0].global_transform.origin.y = dropRaycast.get_collision_point().y + 2.53
+		pickedUpObjects[0].collisionShape.disabled = false
+		ShowGodHandIdle()
+		pickedUpObjects.clear()
+	
+	if Input.is_action_just_pressed("Cancel"):
+		miracleInUse = false
+		HideGodHandWood()
+		HideGodHandGrain()
+		HideGodHandWater()
+		HideGodHandHeal()
+		HideGodHandFireball()
+		
+func ShowGodHandWood():
+	godHandWood.visible = true
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = true
+	godHandIdle.visible = false
+	
+	hasPickedUpMiracleWood = true
+	
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = true
+	
+	
+func HideGodHandWood():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleWood = false
+	
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = false
+	
+func ShowGodHandGrain():
+	godHandWood.visible = false
+	godHandGrain.visible = true
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = true
+	godHandIdle.visible = false
+	
+	hasPickedUpMiracleGrain = true
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = true
+	
+func HideGodHandGrain():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleGrain = false
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = false
+	
+func ShowGodHandWater():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = true
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleWater = true
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = true
+	
+func HideGodHandWater():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleWater = false
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleHeal = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = false
+	
+func ShowGodHandHeal():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = true
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleHeal = true
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = true
+	
+func HideGodHandHeal():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleHeal = false
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpObject = false
+	
+func ShowGodHandFireball():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = true
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleFireball = true
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	
+	hasPickedUpObject = true
+	
+func HideGodHandFireball():
+	godHandWood.visible = false
+	godHandGrain.visible = false
+	godHandWater.visible = false
+	godHandHeal.visible = false
+	godHandFireball.visible = false
+	
+	godHandHolding.visible = false
+	godHandIdle.visible = true
+	
+	hasPickedUpMiracleFireball = false
+	
+	hasPickedUpMiracleWood = false
+	hasPickedUpMiracleGrain = false
+	hasPickedUpMiracleWater = false
+	hasPickedUpMiracleHeal = false
+	
+	hasPickedUpObject = false
+	
+func ShowGodHandHolding():
+	godHandHolding.visible = true
+	godHandIdle.visible = false
+	
+func ShowGodHandIdle():
+	godHandHolding.visible = false
+	godHandIdle.visible = true
