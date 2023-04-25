@@ -1,0 +1,100 @@
+extends Timer
+
+@onready var playerCameraGroup = get_tree().get_nodes_in_group("PlayerCamera")
+@onready var playerCamera = playerCameraGroup[0]
+
+@onready var godHandNightLightGroup = get_tree().get_nodes_in_group("GodHandNightLight")
+@onready var godHandNightLight = godHandNightLightGroup[0]
+
+@onready var hoursLabel = $"../Movement/Tilt/PlayerCamera/HoursLabel"
+@onready var minutesLabel = $"../Movement/Tilt/PlayerCamera/MinutesLabel"
+@onready var secondsLabel = $"../Movement/Tilt/PlayerCamera/SecondsLabel"
+
+@onready var sun = $Sun
+
+var executionOrderStopper = 0
+
+var dayWorldEnvironment = preload ("res://day_world_environment.tscn")
+var nightWorldEnvironment = preload ("res://night_world_environment.tscn")
+
+var dayWorldEnvironmentInstance
+var nightWorldEnvironmentInstance
+
+var isDay = false
+var isNight = false
+
+var seconds = 0
+var minutes = 0
+var hours = 0
+
+func _ready():
+	hours = 7
+	minutes = 50
+	minutesLabel.text = str(minutes)
+	hoursLabel.text = str(hours)
+	SetDay()
+	
+func _process(_delta):
+	if seconds == 60:
+		minutes += 1
+		minutesLabel.text = str(minutes)
+		seconds = 0
+	if minutes == 60:
+		hours += 1
+		hoursLabel.text = str(hours)
+		minutes = 0
+		print(hours)
+	
+	if hours == 7 && minutes == 0 && seconds == 0 && executionOrderStopper == 0:
+		SetDay()
+		godHandNightLight.visible = false
+		isNight = false
+		isDay = true
+		executionOrderStopper = 1
+		
+	if not hours == 8 && minutes == 0 && seconds == 0 && executionOrderStopper == 1:
+		executionOrderStopper = 0
+	
+#	if hours == 8 && minutes == 0 && seconds == 0 && executionOrderStopper == 0:
+#		SetNight()
+#		godHandNightLight.visible = true
+#		isNight = true
+#		isDay = false
+#		executionOrderStopper = 1
+		
+#	if not hours == 8 && minutes == 0 && seconds == 0 && executionOrderStopper == 1:
+#		executionOrderStopper = 0
+		
+
+func SetDay():
+	dayWorldEnvironmentInstance = dayWorldEnvironment.instantiate()
+	add_child(dayWorldEnvironmentInstance)
+	sun.visible = true
+		
+	if nightWorldEnvironmentInstance == null:
+		return
+	else:
+		nightWorldEnvironmentInstance.queue_free()
+	
+func SetNight():
+	nightWorldEnvironmentInstance = nightWorldEnvironment.instantiate()
+	add_child(nightWorldEnvironmentInstance)
+	sun.visible = false
+		
+	if dayWorldEnvironmentInstance == null:
+		return
+	else:
+		dayWorldEnvironmentInstance.queue_free()
+	
+func SetDusk():
+	pass
+	
+func SetDawn():
+	pass
+
+func _on_timeout():
+	seconds += 1
+	secondsLabel.text = str(seconds)
+	
+	if hours == 24:
+		hours = 0
