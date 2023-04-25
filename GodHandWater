@@ -1,0 +1,62 @@
+extends Node3D
+
+
+@onready var godHandRaycastManager = $".."
+@onready var miracleWaterParticles = $MiracleWaterMesh_GodHand/MiracleWaterParticles_GodHand
+@onready var interactionArea = $"../InteractionArea"
+@onready var treeSpawnTimer = $TreeSpawnTimer
+
+var canSpawnNewTree = true
+var currentWaterCount = 200
+var waterMiracleCollisionGroup
+var waterMiracleCollision
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta):
+	
+	if godHandRaycastManager.hasPickedUpMiracleWater == true and Input.is_action_pressed("RightClick"):
+		miracleWaterParticles.emitting = true
+		
+		if interactionArea.has_overlapping_bodies():
+			waterMiracleCollisionGroup = interactionArea.get_overlapping_bodies()
+			waterMiracleCollision = waterMiracleCollisionGroup[0]
+			if waterMiracleCollision.is_in_group("Tree"):
+				
+				if canSpawnNewTree == true && waterMiracleCollision.canSpawnNewTree == true:
+					waterMiracleCollision.treeMesh.scale = Vector3 (2.4, 2.4 ,2.4)
+					waterMiracleCollision.SpawnYoungTree()
+					canSpawnNewTree = false
+					treeSpawnTimer.start(3)
+					
+				if waterMiracleCollision.canGrow == true:
+					waterMiracleCollision.treeMesh.scale.x += 0.01
+					waterMiracleCollision.treeMesh.scale.y += 0.01
+					waterMiracleCollision.treeMesh.scale.z += 0.01
+
+					waterMiracleCollision.currentTreeWood += 1
+					currentWaterCount -= 1
+					
+					if waterMiracleCollision.treeMesh.scale >= Vector3(2.4, 2.4, 2.4):
+						waterMiracleCollision.canGrow = false
+						waterMiracleCollision.canSpawnNewTree = true
+				
+	elif currentWaterCount <= 0: 
+		godHandRaycastManager.hasPickedUpMiracleWater = false
+		godHandRaycastManager.HideGodHandWater()
+		miracleWaterParticles.emitting = false
+		godHandRaycastManager.canPickUpObject = true
+		godHandRaycastManager.miracleInUse = false
+		currentWaterCount = 200
+	else:
+		miracleWaterParticles.emitting = false
+
+
+func _on_tree_spawn_timer_timeout():
+	canSpawnNewTree = true
+
+
