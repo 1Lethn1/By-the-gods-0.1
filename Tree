@@ -1,0 +1,24 @@
+extends RigidBody3D
+
+var currentTreeWood = 313
+
+@export var canGrow = false
+@export var canSpawnNewTree = true
+
+@onready var treeMesh = $Tree_Variant_1
+@onready var collisionShape = $CollisionShape3D
+
+var youngTree_Variant_1 = preload("res://Tree_Variant_1_Rigidbody_Young.tscn")
+
+@onready var rootNodeGroup = get_tree().get_nodes_in_group("Root")
+@onready var rootNode = rootNodeGroup[0]
+
+var randomGenerator = RandomNumberGenerator.new()
+var youngTree_Variant_1_Instance
+
+func SpawnYoungTree():
+	
+	youngTree_Variant_1_Instance = youngTree_Variant_1.instantiate()
+	rootNode.add_child(youngTree_Variant_1_Instance)
+	randomGenerator.randomize()
+	youngTree_Variant_1_Instance.global_transform.origin = Vector3 (self.global_transform.origin.x + randomGenerator.randi_range(-14, 14), 200, self.global_transform.origin.z + randomGenerator.randi_range(-14, 14))
