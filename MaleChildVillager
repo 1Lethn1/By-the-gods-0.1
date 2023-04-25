@@ -1,0 +1,177 @@
+extends CharacterBody3D
+
+var factionOwner = 0
+
+var age = 18
+var health = 100
+var hunger = 100
+var sleep = 100
+
+var currentGrainAmount = 0
+var currentWoodAmount = 0
+
+var isCarryingWood = false
+var isCarryingGrain = false
+
+var isPickedUp = false
+
+var isDisciple = false
+var isDiscipleForester = false
+var isDiscipleCraftsmen = false
+var isDiscipleFarmer = false
+var isDiscipleBreeder = false
+
+var isWondering = false
+var isWalking = false
+var isChillingOut = false
+var isIdle = false
+var isHoused = false
+var isSleeping = false
+var hasNothingToDo = false
+var isWorshipping = false
+var isGoingToVillageStore = false
+var isGoingToWorshipSite = false
+var goingForWood = false
+var goingForGrain = false
+var isNavMeshPathFinished = false
+
+var localVillageManager
+
+@onready var cameraAudioStreamPlayerGroup = get_tree().get_nodes_in_group("CameraAudioStreamPlayer")
+@onready var cameraAudioStreamPlayer = cameraAudioStreamPlayerGroup[0]
+
+@onready var norseMaleChild_AnimationPlayer = $NorseMaleChildVillager/AnimationPlayer
+
+@onready var maleChildNavigationAgent = $NavigationAgent3D
+@onready var villagerWanderTimer = $VillagerWanderTimer
+
+@onready var norseMaleChildStatus_Spatial = $NorseMaleChildVillagerStatus_Spatial
+
+var norseMaleAdult = preload("res://NorseMaleVillager_Character.tscn")
+
+var localVillagerParent
+var wonderVector3 = Vector3()
+var randomGenerator = RandomNumberGenerator.new()
+
+var discipleForesterAudio = preload ("res://Sounds/Disciple Forester.wav")
+var discipleCraftsmenAudio = preload ("res://Sounds/Disciple Craftsmen.wav")
+var discipleFarmerAudio = preload ("res://Sounds/Disciple Farmer.wav")
+var discipleBreederAudio = preload ("res://Sounds/Disciple Breeder.wav")
+var liveHereInPeaceAudio = preload ("res://Sounds/LiveHereInPeace.wav")
+
+
+var speed = 1000
+var movementDelta
+var customVelocity = Vector3()
+
+var randomPoint
+
+func RandomPointInCircle(radius = 0.00002):
+	var r = sqrt(randf_range(0.0, 1.0)) * radius
+	var t = randf_range(0.0, 1.0) * TAU
+	return Vector2(r * cos(t), r * sin(t))
+	
+	
+@onready var villagerStatusText = $NorseMaleChildVillagerStatus_Spatial/VillagerStatusText
+@onready  var ageStatus = $NorseMaleChildVillagerStatus_Spatial/AgeInteger
+@onready var lifeInteger = $NorseMaleChildVillagerStatus_Spatial/LifeInteger
+
+func _ready():
+	
+	isWondering = true
+	villagerStatusText.text = "Wondering"
+	villagerAgentRandomisedPosition()
+	
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(0.00002)
+	wonderVector3 = Vector3(localVillagerParent.global_transform.origin.x + randomPoint.x, 0.0, localVillagerParent.global_transform.origin.z + randomPoint.y)
+	maleChildNavigationAgent.set_target_position(wonderVector3)
+	
+	localVillageManager.children.append(self)
+
+func _physics_process(delta):
+	
+	if isWalking == true:
+		var lookDirection = atan2(velocity.x, velocity.z)
+		rotation.y = lerp (rotation.y, lookDirection, 1 * delta)
+	
+	if isWondering == true:
+		
+		movementDelta = speed * delta
+		var currentLocation = global_transform.origin
+		var nextLocation = maleChildNavigationAgent.get_next_path_position()
+		customVelocity = (nextLocation - currentLocation).normalized() * movementDelta
+		velocity = velocity.move_toward(customVelocity, 200)
+		maleChildNavigationAgent.set_velocity(customVelocity)
+	
+
+func MaleChildVillagerWalkingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Walk")
+	
+func MaleChildVillagerIdleAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Idle")
+	
+func MaleChildVillagerSittingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Sitting")
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_SittingCycle")
+	
+func MaleChildVillagerGettingUpFromSitting():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_GettingUpFromSitting")
+	
+func MaleChildVillagerWorshippingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Worship")
+	
+func MaleChildVillagerWorshippingLoopAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Worship")
+	
+func MaleChildVillagerFarmingDancing_Variant1Animation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Dancing_Variant_1")
+	
+func MaleChildVillagerPanickingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Panicking")
+
+func MaleChildVillagerPointingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Pointing")
+	
+func MaleChildVillagerSleepingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Sleeping")
+	
+func MaleChildVillagerGettingUpFromSleepingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_GettingUpFromSleeping")
+	
+func MaleChildVillagerWavingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Waving")
+	
+func MaleChildVillagerFallingAnimation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Falling")
+	
+func MaleChildVillagerClappingVariant_1Animation():
+	norseMaleChild_AnimationPlayer.play("NorseMaleChild_Clapping_Variant_1")
+	
+func villagerAgentRandomisedPosition():
+	speed = 1000
+	villagerWanderTimer.wait_time = 2
+	isWondering = true
+	isNavMeshPathFinished = false
+	isWalking = true
+	MaleChildVillagerWalkingAnimation()
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(0.00002)
+	wonderVector3 = Vector3(localVillagerParent.global_transform.origin.x + randomPoint.x, 0.0, localVillagerParent.global_transform.origin.z + randomPoint.y)
+	maleChildNavigationAgent.set_target_position(wonderVector3)
+
+func _on_villager_wander_timer_timeout():
+	villagerAgentRandomisedPosition()
+
+
+func _on_navigation_agent_3d_velocity_computed(safe_velocity):
+	velocity = safe_velocity
+	move_and_slide()
+
+
+func _on_navigation_agent_3d_navigation_finished():
+	isNavMeshPathFinished = true
+	speed = 0
+	MaleChildVillagerIdleAnimation()
+	isWalking = false
+	villagerWanderTimer.start()
