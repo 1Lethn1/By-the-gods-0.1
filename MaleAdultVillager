@@ -1,0 +1,301 @@
+extends CharacterBody3D
+
+var factionOwner = 0
+
+var age = 18
+var health = 100
+var hunger = 100
+var sleep = 100
+
+var currentGrainAmount = 0
+var currentWoodAmount = 0
+
+var isCarryingWood = false
+var isCarryingGrain = false
+
+var isPickedUp = false
+
+var isDisciple = false
+var isDiscipleForester = false
+var isDiscipleCraftsmen = false
+var isDiscipleFarmer = false
+var isDiscipleBreeder = false
+
+var isWondering = false
+var isWalking = false
+var isChillingOut = false
+var isIdle = false
+var isHoused = false
+var isSleeping = false
+var hasNothingToDo = false
+var isWorshipping = false
+var isGoingToVillageStore = false
+var isGoingToWorshipSite = false
+var goingForWood = false
+var goingForGrain = false
+var isNavMeshPathFinished = false
+
+var hasAnimationPlayed
+
+var breedDesire = 0.0
+
+@onready var cameraAudioStreamPlayerGroup = get_tree().get_nodes_in_group("CameraAudioStreamPlayer")
+@onready var cameraAudioStreamPlayer = cameraAudioStreamPlayerGroup[0]
+
+@onready var dayNightTimerGroup = get_tree().get_nodes_in_group("DayNightTimer")
+@onready var dayNightTimer = dayNightTimerGroup[0]
+
+@onready var norseMaleVillagerAnimationPlayer = $NorseMaleVillager/MaleVillagerAnimationPlayer
+
+@onready var maleVillagerMallet = $NorseMaleVillager/MaleMallet_Node
+@onready var maleVillagerAxe = $NorseMaleVillager/MaleAxe_Node
+@onready var maleVillagerGrainBag = $NorseMaleVillager/MaleGrainBag_Node
+@onready var maleVillagerHoe = $NorseMaleVillager/MaleHoe_Node
+@onready var maleVillagerLog = $NorseMaleVillager/MaleLog_Node
+@onready var maleVillagerSaw = $NorseMaleVillager/MaleSaw_Node
+@onready var maleVillagerSickle = $NorseMaleVillager/MaleSickle_Node
+
+@onready var maleAdultNavigationAgent = $MaleAdultNavigationAgent
+@onready var maleVillagerSpatial = $NorseMaleVillager
+@onready var villagerWanderTimer = $VillagerWanderTimer
+
+var localVillageManager
+var wonderVector3 = Vector3()
+var randomGenerator = RandomNumberGenerator.new()
+
+var discipleForesterAudio = preload ("res://Sounds/Disciple Forester.wav")
+var discipleCraftsmenAudio = preload ("res://Sounds/Disciple Craftsmen.wav")
+var discipleFarmerAudio = preload ("res://Sounds/Disciple Farmer.wav")
+var discipleBreederAudio = preload ("res://Sounds/Disciple Breeder.wav")
+var liveHereInPeaceAudio = preload ("res://Sounds/LiveHereInPeace.wav")
+
+
+var speed = 500
+var movementDelta
+var customVelocity = Vector3()
+
+var randomPoint
+
+func RandomPointInCircle(radius = 50.0):
+	var r = sqrt(randf_range(0.0, 1.0)) * radius
+	var t = randf_range(0.0, 1.0) * TAU
+	return Vector2(r * cos(t), r * sin(t))
+
+	
+@onready var norseMaleVillagerStatus_Node = $NorseMaleVillagerStatus_Node
+
+@onready var villagerStatusText = $NorseMaleVillagerStatus_Node/VillagerStatusText
+@onready  var ageInteger = $NorseMaleVillagerStatus_Node/AgeInteger
+@onready var lifeInteger = $NorseMaleVillagerStatus_Node/LifeInteger
+
+var executionOrderStopper = 0
+
+func _ready():
+	isWondering = true
+	villagerStatusText.text = "Wondering"
+	localVillageManager = get_parent_node_3d()
+	villagerAgentRandomisedPosition()
+	
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(50.0)
+	wonderVector3 = Vector3(localVillageManager.global_transform.origin.x + randomPoint.x, 0.0, localVillageManager.global_transform.origin.z + randomPoint.y)
+	maleAdultNavigationAgent.set_target_position(wonderVector3)
+	
+	localVillageManager.totalAdultVillagers.append(self)
+	localVillageManager.maleVillagers.append(self)
+	localVillageManager.unhousedVillagers.append(self)
+
+func _physics_process(delta):
+	
+	if isWalking == true:
+		var lookDirection = atan2(velocity.x, velocity.z)
+		rotation.y = lerp (rotation.y, lookDirection, 1 * delta)
+	
+	if isWondering == true:
+		
+		movementDelta = speed * delta
+		var currentLocation = global_transform.origin
+		var nextLocation = maleAdultNavigationAgent.get_next_path_position()
+		customVelocity = (nextLocation - currentLocation).normalized() * movementDelta
+		velocity = velocity.move_toward(customVelocity, 200)
+		maleAdultNavigationAgent.set_velocity(customVelocity)
+		
+	if dayNightTimer.hours == 8 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 0:
+		isSleeping = true
+		isWondering = false
+		isWalking = false
+		speed = 0
+		villagerStatusText.text = "Sleeping"
+		MaleVillagerSleepingAnimation()
+		print ("Sleep Executed")
+		executionOrderStopper = 1
+		
+	if not dayNightTimer.hours == 8 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 1:
+		print ("Sleep Code Stopped")
+		executionOrderStopper = 0
+		
+	if dayNightTimer.hours == 7 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 0:
+		MaleVillagerGettingUpFromSleepingAnimation()
+		isSleeping = false
+		isWondering = true
+		isWalking = true
+		speed = 500
+		villagerStatusText.text = "Wondering"
+		hasAnimationPlayed = false
+		executionOrderStopper = 1
+		
+	if not dayNightTimer.hours == 7 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 1:
+		executionOrderStopper = 0
+
+func MaleVillagerWalkingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Walk")
+	
+func MaleVillagerIdleAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Idle")
+	
+func MaleVillagerSittingAnimation():
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_Sitting")
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_SittingCycle")
+	
+func MaleVillagerGettingUpFromSitting():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_GettingUpFromSitting")
+	
+func MaleVillagerWorshippingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Worship")
+	
+func MaleVillagerWorshippingLoopAnimation():
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_Worship")
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_WorshipLoop")
+	
+func MaleVillagerGrainCarryingAnimation():
+	maleVillagerGrainBag.visible = true
+	maleVillagerAxe.visible = false
+	maleVillagerMallet.visible = false
+	maleVillagerSaw = false
+	maleVillagerHoe.visible = false
+	maleVillagerSickle.visible = false
+	maleVillagerLog.visible = false
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_WalkCarryingGrainBag")
+	
+func MaleVillagerLogCarryingAnimation():
+	maleVillagerGrainBag.visible = false
+	maleVillagerAxe.visible = false
+	maleVillagerMallet.visible = false
+	maleVillagerSaw = false
+	maleVillagerHoe.visible = false
+	maleVillagerSickle.visible = false
+	maleVillagerLog.visible = true
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_WalkCarryingLog")
+
+func MaleVillagerWoodCuttingAxeAnimation():
+	maleVillagerGrainBag.visible = false
+	maleVillagerAxe.visible = true
+	maleVillagerMallet.visible = false
+	maleVillagerSaw = false
+	maleVillagerHoe.visible = false
+	maleVillagerSickle.visible = false
+	maleVillagerLog.visible = false
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_WoodcuttingAxe")
+	
+func MaleVillagerFarmingHoeAnimation():
+	maleVillagerGrainBag.visible = false
+	maleVillagerAxe.visible = false
+	maleVillagerMallet.visible = false
+	maleVillagerSaw = false
+	maleVillagerHoe.visible = true
+	maleVillagerSickle.visible = false
+	maleVillagerLog.visible = false
+
+func MaleVillagerFarmingSickleAnimation():
+	maleVillagerGrainBag.visible = false
+	maleVillagerAxe.visible = false
+	maleVillagerMallet.visible = false
+	maleVillagerSaw = false
+	maleVillagerHoe.visible = false
+	maleVillagerLog.visible = false
+	maleVillagerSickle.visible = true
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_FarmingSickle")
+	
+func MaleVillagerBuildingMalletAnimation():
+	maleVillagerMallet.visible = true
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Building")
+
+func MaleVillagerBuildingSawAnimation():
+	maleVillagerSaw.visible = true
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_BuildingSaw")
+	
+func MaleVillagerFarmingDancing_Variant1Animation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Dancing_Variant_1")
+	
+func MaleVillagerPanickingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Panicking")
+
+func MaleVillagerPointingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Pointing")
+	
+func MaleVillagerKissingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Kissing")
+	
+func MaleVillagerSleepingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Sleeping")
+	
+func MaleVillagerGettingUpFromSleepingAnimation():
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_GettingUpFromSleeping")
+	norseMaleVillagerAnimationPlayer.queue("NorseMaleAdult_Idle")
+	
+	
+func MaleVillagerWavingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Waving")
+	
+func MaleVillagerFallingAnimation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Falling")
+	
+func MaleVillagerClappingVariant_1Animation():
+	norseMaleVillagerAnimationPlayer.play("NorseMaleAdult_Clapping_Variant_1")
+
+
+func _on_MaleAdultNavigationAgent_velocity_computed(safe_velocity):
+	velocity = safe_velocity
+	move_and_slide()
+
+func _on_MaleAdultNavigationAgent_target_reached():
+	print ("Male Villager Target Reached")
+
+func _on_MaleAdultNavigationAgent_navigation_finished():
+	speed = 0
+	isNavMeshPathFinished = true
+	MaleVillagerIdleAnimation()
+	isWalking = false
+	villagerWanderTimer.start()
+	
+func villagerAgentRandomisedPosition():
+	villagerWanderTimer.wait_time = 3
+	speed = 500
+	isNavMeshPathFinished = false
+	isWalking = true
+	MaleVillagerWalkingAnimation()
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(50.0)
+	wonderVector3 = Vector3(localVillageManager.global_transform.origin.x + randomPoint.x, 0.0, localVillageManager.global_transform.origin.z + randomPoint.y)
+	maleAdultNavigationAgent.set_target_position(wonderVector3)
+
+
+func _on_VillagerWanderTimer_timeout():
+	villagerAgentRandomisedPosition()
+
+
+func _on_breed_desire_timer_timeout():
+	
+	breedDesire += 1
+	
+	if breedDesire > 50:
+		for femaleVillager in localVillageManager.femaleVillagers:
+			if femaleVillager.breedDesire > 50:
+				var selectedFemalePartner = femaleVillager
+				isWondering = false
+				isWalking = true
+				maleAdultNavigationAgent.set_target_position(selectedFemalePartner.global_transform.origin)
+				speed = 500
+				print(breedDesire)
+	else:
+		return
