@@ -1,0 +1,41 @@
+extends RigidBody3D
+
+var currentTreeWood = 313
+
+@export var canGrow = true
+@export var canSpawnNewTree = false
+
+@onready var treeMesh = $Tree_Variant_1
+@onready var heightCheck = $HeightCheck
+@onready var collisionShape = $CollisionShape3D
+
+var youngTree_Variant_1 = preload("res://Tree_Variant_1_Rigidbody_Young.tscn")
+
+@onready var rootNodeGroup = get_tree().get_nodes_in_group("Root")
+@onready var rootNode = rootNodeGroup[0]
+
+var randomGenerator = RandomNumberGenerator.new()
+var youngTree_Variant_1_Instance
+
+func _ready():
+	var minScale = 0.276
+	var maxScale = 2.4
+	treeMesh.scale.x = clamp(0.01, minScale, maxScale)
+	treeMesh.scale.y = clamp(0.01, minScale, maxScale)
+	treeMesh.scale.z = clamp(0.01, minScale, maxScale)
+ 
+func SpawnYoungTree():
+	
+	youngTree_Variant_1_Instance = youngTree_Variant_1.instantiate()
+	rootNode.add_child(youngTree_Variant_1_Instance)
+	randomGenerator.randomize()
+	youngTree_Variant_1_Instance.global_transform.origin = Vector3 (self.global_transform.origin.x + randomGenerator.randi_range(-14, 14), 200, self.global_transform.origin.z + randomGenerator.randi_range(-14, 14))
+	
+func _on_height_timer_timeout():
+	if heightCheck.is_colliding():
+		var heightCheckCollider = heightCheck.get_collider()
+		if heightCheckCollider.is_in_group("Tree"):
+			youngTree_Variant_1_Instance.queue_free()
+			print("Duplicate Tree Deleted")
+		else:
+			self.global_transform.origin.y = heightCheck.get_collision_point().y + 2.53
