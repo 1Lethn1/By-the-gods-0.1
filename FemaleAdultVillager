@@ -1,0 +1,299 @@
+extends CharacterBody3D
+
+var factionOwner = 0
+
+var age = 18
+var health = 100
+var hunger = 100
+var sleep = 100
+
+var currentGrainAmount = 0
+var currentWoodAmount = 0
+
+var isCarryingWood = false
+var isCarryingGrain = false
+
+var isPickedUp = false
+
+var isDisciple = false
+var isDiscipleForester = false
+var isDiscipleCraftsmen = false
+var isDiscipleFarmer = false
+var isDiscipleBreeder = false
+
+var isWondering = false
+var isWalking = false
+var isChillingOut = false
+var isIdle = false
+var isHoused = false
+var isSleeping = false
+var hasNothingToDo = false
+var isWorshipping = false
+var isGoingToVillageStore = false
+var isGoingToWorshipSite = false
+var goingForWood = false
+var goingForGrain = false
+
+var isNavMeshPathFinished = false
+
+var hasAnimationPlayed
+
+
+@onready var cameraAudioStreamPlayerGroup = get_tree().get_nodes_in_group("CameraAudioStreamPlayer")
+@onready var cameraAudioStreamPlayer = cameraAudioStreamPlayerGroup[0]
+
+@onready var dayNightTimerGroup = get_tree().get_nodes_in_group("DayNightTimer")
+@onready var dayNightTimer = dayNightTimerGroup[0]
+
+@onready var norseFemaleVillagerAnimationPlayer = $NorseFemaleVillager/FemaleVillagerAnimationPlayer
+
+@onready var norseFemaleVillager_Mallet = $NorseFemaleVillager/FemaleMallet_Node
+@onready var norseFemaleVillager_Axe = $NorseFemaleVillager/FemaleAxe_Node
+@onready var norseFemaleVillager_GrainBag = $NorseFemaleVillager/FemaleGrainBag_Node
+@onready var norseFemaleVillager_Hoe = $NorseFemaleVillager/FemaleHoe_Node
+@onready var norseFemaleVillager_Log = $NorseFemaleVillager/FemaleLog_Node
+@onready var norseFemaleVillager_Saw = $NorseFemaleVillager/FemaleSaw_Node
+@onready var norseFemaleVillager_Sickle = $NorseFemaleVillager/FemaleSickle_Node
+
+
+var discipleForesterAudio = preload ("res://Sounds/Disciple Forester.wav")
+var discipleCraftsmenAudio = preload ("res://Sounds/Disciple Craftsmen.wav")
+var discipleFarmerAudio = preload ("res://Sounds/Disciple Farmer.wav")
+var discipleBreederAudio = preload ("res://Sounds/Disciple Breeder.wav")
+var liveHereInPeaceAudio = preload ("res://Sounds/LiveHereInPeace.wav")
+
+@onready var norseFemaleVillager_Collision = $NorseFemaleVillager_Collision
+@onready var femaleAdultNavigationAgent = $FemaleAdultNavigationAgent
+@onready var villagerWanderTimer = $VillagerWanderTimer
+
+var norseMaleChildVillager = preload("res://NorseMaleChildVillager_Character.tscn")
+var norseFemaleChildVillager = preload("res://NorseFemaleChildVillager_Character.tscn")
+
+
+var localVillageManager
+var speed = 500
+var movementDelta
+var customVelocity = Vector3()
+var wonderVector3 = Vector3()
+
+var randomPoint
+var randomGenerator = RandomNumberGenerator.new()
+var breedChanceGenerator = RandomNumberGenerator.new()
+var genderGenerator = RandomNumberGenerator.new()
+
+var breedDesire = 0
+var breedChance = 0.0
+var breedGender = 0
+var isPregnant = false
+
+func RandomPointInCircle(radius = 50.0):
+	var r = sqrt(randf_range(0.0, 1.0)) * radius
+	var t = randf_range(0.0, 1.0) * TAU
+	return Vector2(r * cos(t), r * sin(t))
+	
+@onready var pregnancyTimer = $PregnancyTimer
+
+@onready var norseFemaleVillagerStatus_Node = $NorseFemaleVillagerStatus_Node
+
+@onready var villagerStatusText = $NorseFemaleVillagerStatus_Node/VillagerStatusText
+@onready  var ageInteger = $NorseFemaleVillagerStatus_Node/AgeInteger
+@onready var lifeInteger = $NorseFemaleVillagerStatus_Node/LifeInteger
+@onready var pregnancyStatus = $NorseFemaleVillagerStatus_Node/PregnancyStatus
+
+var executionOrderStopper = 0
+
+func _ready():
+	isWondering = true
+	villagerStatusText.text = "Wondering"
+	localVillageManager = get_parent_node_3d()
+	villagerAgentRandomisedPosition()
+	
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(50.0)
+	wonderVector3 = Vector3(localVillageManager.global_transform.origin.x + randomPoint.x, 0.0, localVillageManager.global_transform.origin.z + randomPoint.y)
+	femaleAdultNavigationAgent.set_target_position(wonderVector3)
+	
+	localVillageManager.totalAdultVillagers.append(self)
+	localVillageManager.femaleVillagers.append(self)
+	localVillageManager.unhousedVillagers.append(self)
+
+func _physics_process(delta):
+	
+	if isWalking == true:
+		var lookDirection = atan2(velocity.x, velocity.z)
+		rotation.y = lerp (rotation.y, lookDirection, 1 * delta)
+	
+	if isWondering == true:
+		
+		movementDelta = speed * delta
+		var currentLocation = global_transform.origin
+		var nextLocation = femaleAdultNavigationAgent.get_next_path_position()
+		customVelocity = (nextLocation - currentLocation).normalized() * movementDelta
+		velocity = velocity.move_toward(customVelocity, 200)
+		femaleAdultNavigationAgent.set_velocity(customVelocity)
+		
+	if dayNightTimer.hours == 8 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 0:
+		isSleeping = true
+		isWondering = false
+		isWalking = false
+		speed = 0
+		villagerStatusText.text = "Sleeping"
+		FemaleVillagerSleepingAnimation()
+		print ("Sleep Executed")
+		executionOrderStopper = 1
+		
+	if not dayNightTimer.hours == 8 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 1:
+		executionOrderStopper = 0
+		
+	if dayNightTimer.hours == 7 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 0:
+		FemaleVillagerGettingUpFromSleepingAnimation()
+		isSleeping = false
+		isWondering = true
+		isWalking = true
+		speed = 500
+		villagerStatusText.text = "Wondering"
+		hasAnimationPlayed = false
+		executionOrderStopper = 1
+		
+	if not dayNightTimer.hours == 7 && dayNightTimer.minutes == 0 && dayNightTimer.seconds == 0 && executionOrderStopper == 1:
+		executionOrderStopper = 0
+
+func FemaleVillagerWalkingAnimation():
+	norseFemaleVillagerAnimationPlayer.play("NorseFemaleAdult_Walk")
+	
+func FemaleVillagerIdleAnimation():
+	norseFemaleVillagerAnimationPlayer.play("NorseFemaleAdult_Idle")
+	
+func FemaleVillagerSittingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Sitting")
+	
+func FemaleVillagerSittingCycleAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_SittingCycle")
+	
+func FemaleVillagerGettingUpFromSitting():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_GettingUpFromSitting")
+	
+func FemaleVillagerWorshippingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_GettingUpFromSitting")
+	
+func FemaleVillagerWorshippingLoopAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Worship")
+	
+func FemaleVillagerGrainCarryingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_WalkCarryingGrainBag")
+	
+func FemaleVillagerLogCarryingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_WalkCarryingLog")
+
+func FemaleVillagerWoodCuttingAnimation():
+	pass
+	
+func FemaleVillagerFarmingHoeAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_FarmingHoe")
+
+func FemaleVillagerFarmingSickleAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_FarmingSickle")
+	
+func FemaleVillagerBuildingMalletAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Building")
+
+func FemaleVillagerBuildingSawAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_BuildingSaw")
+	
+func FemaleVillagerDancing_Variant1Animation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Dancing_Variant_1")
+	
+func FemaleVillagerPanickingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Panicking")
+
+func FemaleVillagerPointingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Pointing")
+	
+func FemaleVillagerKissingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Kissing")
+	
+func FemaleVillagerSleepingAnimation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Sleeping")
+	
+func FemaleVillagerGettingUpFromSleepingAnimation():
+	norseFemaleVillagerAnimationPlayer.queue("NorseFemaleAdult_GettingUpFromSleeping")
+	norseFemaleVillagerAnimationPlayer.queue("NorseFemaleAdult_Idle")
+	
+func FemaleVillagerWavingAnimation():
+	norseFemaleVillagerAnimationPlayer.play("NorseFemaleAdult_Waving")
+	
+func FemaleVillagerFallingAnimation():
+	norseFemaleVillagerAnimationPlayer.play("NorseFemaleAdult_Falling")
+	
+func FemaleVillagerClappingVariant_1Animation():
+	norseFemaleVillagerAnimationPlayer.play ("NorseFemaleAdult_Clapping_Variant_1")
+	
+func villagerAgentRandomisedPosition():
+	villagerWanderTimer.wait_time = 3
+	speed = 500
+	isNavMeshPathFinished = false
+	isWalking = true
+	FemaleVillagerWalkingAnimation()
+	randomGenerator.randomize()
+	randomPoint = RandomPointInCircle(50.0)
+	wonderVector3 = Vector3(localVillageManager.global_transform.origin.x + randomPoint.x, 0.0, localVillageManager.global_transform.origin.z + randomPoint.y)
+	femaleAdultNavigationAgent.set_target_position(wonderVector3)
+
+func EnablePregnancyStatus():
+	pregnancyStatus.visible = true
+	
+func DisablePregnancyStatus():
+	pregnancyStatus.visible = false
+
+func CreateNorseChildVillager():
+	
+	genderGenerator.randomize()
+	breedGender = randi_range(1, 2)
+	
+	if breedGender == 1:
+		var norseMaleChild = norseMaleChildVillager.instantiate()
+		norseMaleChild.localVillagerParent = norseFemaleVillager_Collision
+		norseMaleChild.localVillagerManager = localVillageManager
+		add_child(norseMaleChild)
+	elif breedGender == 2:
+		var norseFemaleChild = norseFemaleChildVillager.instantiate()
+		norseFemaleChild.localVillagerParent = norseFemaleVillager_Collision
+		norseFemaleChild.localVillagerManager = localVillageManager
+		add_child(norseFemaleChild)
+
+func _on_female_adult_navigation_agent_velocity_computed(safe_velocity):
+		velocity = safe_velocity
+		move_and_slide()
+
+func _on_female_adult_navigation_agent_navigation_finished():
+	speed = 0
+	FemaleVillagerIdleAnimation()
+	isNavMeshPathFinished = true
+	isWalking = false
+	villagerWanderTimer.start()
+
+func _on_villager_wander_timer_timeout():
+	villagerAgentRandomisedPosition()
+
+
+func _on_breed_radius_body_entered(body):
+	if body.is_in_group("MaleVillager"):
+		print("Test")
+		
+func _on_pregnancy_timer_timeout():
+	pass
+
+func _on_breed_desire_timer_timeout():
+	breedDesire += 1
+	
+	if breedDesire > 50:
+		for maleVillager in localVillageManager.maleVillagers:
+			if maleVillager.breedDesire > 50:
+				var selectedMalePartner = maleVillager
+				isWondering = false
+				femaleAdultNavigationAgent.set_target_position(selectedMalePartner.global_transform.origin)
+				print(breedDesire)
+	else:
+		return
+
+
