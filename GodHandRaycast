@@ -16,6 +16,12 @@ extends Node3D
 @onready var godHandPickup = $GodHandPickup
 @onready var buttonHoldTimer = $ButtonHoldTimer
 
+@onready var movementGroup = get_tree().get_nodes_in_group("Movement")
+@onready var movement = movementGroup[0]
+
+var throwStrengthMultiplier = 0
+var movementBasisZ
+
 @onready var cameraAudioStreamPlayerGroup = get_tree().get_nodes_in_group("CameraAudioStreamPlayer")
 @onready var cameraAudioStreamPlayer = cameraAudioStreamPlayerGroup[0]
 
@@ -118,22 +124,16 @@ func _physics_process(_delta):
 		pickUpAreaCollider = pickUpAreaCollision[0]
 		if pickUpAreaCollider.is_in_group("Tree"):
 			pickedUpObjects.append(pickUpAreaCollider)
+			pickUpAreaCollider.freeze = true
 			pickUpAreaCollider.collisionShape.disabled = true
+			pickUpAreaCollider.rotation = Vector3.ZERO
 			ShowGodHandHolding()
 			hasPickedUpObject = true
 			canPickUpObject = false
 			isObjectThrowable = false
+			canThrowObject = true
 			
-	elif Input.is_action_pressed("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && canThrowObject == true && hasPickedUpObject && buttonHoldTimer.time_left == 0:
-		buttonHoldTimer.start()
-		isObjectThrowable = true
-		print ("Mouse Button Held")
-	elif Input.is_action_just_released("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && canThrowObject == true && isObjectThrowable == true:
-		buttonHoldTimer.stop()
-		print ("Mouse Button Released")
-			
-			
-	elif Input.is_action_just_pressed("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && isObjectThrowable == false && canPickUpObject == false && buttonHoldTimer.time_left == 0:
+	elif Input.is_action_just_pressed("RightClick") && hasPickedUpObject == true && canPickUpObject == false && miracleInUse == false && isObjectThrowable == false && canPickUpObject == false && canThrowObject == true:
 		hasPickedUpObject = false
 		canPickUpObject = true
 		isObjectThrowable = false
@@ -142,6 +142,34 @@ func _physics_process(_delta):
 		pickedUpObjects[0].collisionShape.disabled = false
 		ShowGodHandIdle()
 		pickedUpObjects.clear()
+			
+	if Input.is_action_just_pressed("ThrowMode") && hasPickedUpObject == true && isObjectThrowable == false && canThrowObject == true:
+		isObjectThrowable = true
+		print(isObjectThrowable)
+		
+	elif Input.is_action_just_pressed("ThrowMode") && hasPickedUpObject == true && isObjectThrowable == true && canThrowObject == true:
+		isObjectThrowable = false
+		print(isObjectThrowable)
+		
+	if isObjectThrowable == true && Input.is_action_pressed("ctrl") && Input.is_action_pressed("2"):
+		throwStrengthMultiplier += 1
+		print(throwStrengthMultiplier)
+	elif isObjectThrowable == true && Input.is_action_pressed("ctrl") && Input.is_action_pressed("1"):
+		throwStrengthMultiplier -= 1
+		print(throwStrengthMultiplier)
+			
+	if Input.is_action_pressed("RightClick") && canPickUpObject == false && miracleInUse == false && canThrowObject == true && hasPickedUpObject == true && isObjectThrowable == true:
+		movementBasisZ = -movement.transform.basis.z
+	elif Input.is_action_just_released("RightClick") && canThrowObject == true && isObjectThrowable == true:
+		pickUpAreaCollider.apply_central_force(movementBasisZ * throwStrengthMultiplier)
+		pickUpAreaCollider.freeze = false
+		hasPickedUpObject = false
+		canPickUpObject = true
+		canThrowObject = false 
+		isObjectThrowable = false
+		pickUpAreaCollider.collisionShape.disabled = false
+		pickedUpObjects.clear()
+		ShowGodHandIdle()
 	
 	if Input.is_action_just_pressed("Cancel"):
 		miracleInUse = false
